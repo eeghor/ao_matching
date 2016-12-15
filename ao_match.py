@@ -19,14 +19,40 @@ nrows_op = len(op_df.index)
 	2: same SURNAMES of the players
 """
 
-ao_df.sur_p1 = ao_df.player1.apply(lambda _: {_.split()[1].strip().lower()} if "/" not in _ else {y.split()[1].strip().lower() for y in _.split("/")})
-ao_df.sur_p2 = ao_df.player2.apply(lambda _: {_.split()[1].strip().lower()} if "/" not in _ else {y.split()[1].strip().lower() for y in _.split("/")})
+def get_ao_surname(st):
+
+	name_split = [w.strip().lower() for w in st.split()]
+
+	if len(name_split) == 2:  # just name and surname
+		su = name_split[1]
+	elif len(name_split) == 3:  # John William Coles
+		if "del" == name_split[-2:-1] or "de" == name_split[-2:-1]:
+			su = " ".join(name_split[-2:])
+		else:
+			su = name_split[-1]
+	else:
+		su = name_split[1:]
+	
+	return su
+
+def get_op_surname(st):
+
+	name_split = [w.strip().lower() for w in st.split()]
+	su = " ".join([w for w in name_split if "." not in w])
+	
+	return su
+
+
+# assume that surname is all but the very first word; special case: if there's del before the last word, then it's a part of surname
+ao_df.sur_p1 = ao_df.player1.apply(lambda _: {get_ao_surname(_)} if "/" not in _ else {get_ao_surname(y) for y in _.split("/")})
+ao_df.sur_p2 = ao_df.player2.apply(lambda _: {get_ao_surname(_)} if "/" not in _ else {get_ao_surname(y) for y in _.split("/")})
 
 # date is either just a year or something like 2016-01-25
 ao_df.year = ao_df.date.apply(lambda _: _ if "-" not in _ else _.split("-")[0]).astype(int)
 
-op_df.sur_p1 = op_df.player1.apply(lambda _: {_.split()[0].strip().lower()} if "/" not in _ else {y.split()[0].strip().lower() for y in _.split("/")})
-op_df.sur_p2 = op_df.player2.apply(lambda _: {_.split()[0].strip().lower()} if "/" not in _ else {y.split()[0].strip().lower() for y in _.split("/")})
+# assume that everything except the bit with a dot is surname, e.g. de voest l.
+op_df.sur_p1 = op_df.player1.apply(lambda _: {get_op_surname(_)} if "/" not in _ else {get_op_surname(y) for y in _.split("/")})
+op_df.sur_p2 = op_df.player2.apply(lambda _: {get_op_surname(_)} if "/" not in _ else {get_op_surname(y) for y in _.split("/")})
 
 # here dates are like 14 Jan 2009
 op_df.year = op_df.date.apply(lambda _: _.split()[-1]).astype(int)
@@ -41,6 +67,11 @@ exact_match_idx = []
 nomatch_idx = []
 nomatch_absent_year_idx = []
 mult_match_idx = []
+
+nomatch_file = "nomatch.csv"
+multmatch_file = "multmatch.csv"
+
+
 
 
 for i in range(nrows_ao):
@@ -97,7 +128,7 @@ print("successfully added time: {} ({}%)".format(len(exact_match_idx), round(100
 print("couldn't find time: {}".format(len(nomatch_idx)))
 print("multiple times found: {}".format(len(mult_match_idx)))
 
-print("multiple match")
-print(ao_df.iloc[mult_match_idx])
+ao_df.iloc[nomatch_idx].to_csv(nomatch_file, index=False, sep="\t")
+ao_df.iloc[mult_match_idx].to_csv(multmatch_file, index=False, sep="\t")
 	# ao_df.sur_p1[i] is a list of 1 or 2 surnames
 
