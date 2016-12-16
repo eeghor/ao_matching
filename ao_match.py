@@ -31,19 +31,25 @@ def get_ao_surname(st):
 		su = name_split[0]
 	elif len(name_split) == 2:  # just name and surname
 		su = name_split[1]
-	elif len(name_split) == 3:  # John William Coles
-		if "del" == name_split[-2:-1] or "de" == name_split[-2:-1]:
-			su = "_".join(name_split[-2:])
-		else:  
+	else:
+		if "del" in name_split:
+			su = "_".join(name_split[name_split.index("del"):])
+		elif "de" in name_split:
+			su = "_".join(name_split[name_split.index("de"):])
+		elif len(name_split) == 4:
+			su = " ".join(name_split[-2:])
+		else:
 			su = name_split[-1]
-	else:  # long name like Antonio Sanchez Matilda Souza
-		su = "_".join(name_split[1:])
+
+	su = su.replace("-","_")
 	
 	return su
 
 def get_op_surname(st):
 
 	su = "_".join([w.strip().lower() for w in st.split() if "." not in w])
+
+	su = su.replace("-","_")
 	
 	return su
 
@@ -62,8 +68,6 @@ plist1 = op_df.player1.apply(lambda _: [get_op_surname(_)] if "/" not in _ else 
 plist2 = op_df.player2.apply(lambda _: [get_op_surname(_)] if "/" not in _ else [get_op_surname(y) for y in _.split("/")])
 op_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1] for x in zip(plist1, plist2)]))]).values
 
-#print(op_df.id.head())
-
 # # here dates are like 14 Jan 2009
 op_df["year"] = op_df.date.apply(lambda _: _.split()[-1]).astype(int)
 
@@ -72,14 +76,14 @@ max_year_op = op_df.year.max()
 
 # # print("actual match starting times are available for years {} to {}".format(min_year_op, max_year_op))
 
-# starting_times = []
-# exact_match_idx = []
-# nomatch_idx = []
-# nomatch_absent_year_idx = []
-# mult_match_idx = []
+starting_times = []
+exact_match_idx = []
+nomatch_idx = []
+nomatch_absent_year_idx = []
+mult_match_idx = []
 
-# nomatch_file = "nomatch.csv"
-# multmatch_file = "multmatch.csv"
+nomatch_file = "nomatch.csv"
+multmatch_file = "multmatch.csv"
 
 # def match_again(surname1_ao, surname2_ao, year_ao):
 
@@ -98,7 +102,7 @@ max_year_op = op_df.year.max()
 
 for i in range(nrows_ao):
 
-	print("matching {} vs {} played in {}...".format(ao_df.sur_p1[i], ao_df.sur_p2[i],ao_df.year[i]), end="")
+	print("matching {} vs {} played in {}...".format(plist1[i], plist2[i],ao_df.year[i]), end="")
 	
 	if ao_df.year[i] not in range(min_year_op, max_year_op + 1):
 		print("skip")
@@ -111,15 +115,18 @@ for i in range(nrows_ao):
 	# 	op_df.sur_p1.apply(lambda _: len(_ & ao_df.sur_p1[i]) == len(_) or len(_ & ao_df.sur_p2[i]) == len(_)) & 
 	# 	op_df.sur_p2.apply(lambda _: len(_ & ao_df.sur_p1[i]) == len(_) or len(_ & ao_df.sur_p2[i]) == len(_)) )
 	
-	right_one = (
-		op_df.year.isin([ao_df.year[i]]) & 
-		op_df.sur_p1.apply(  lambda _: (jellyfish.levenshtein_distance(_ ,ao_df.sur_p1[i][0]) < 3) or 
-										(jellyfish.levenshtein_distance(_ ,ao_df.sur_p2[i][0]) < 3)  ) & 
-		op_df.sur_p2.apply(  lambda _: jellyfish.levenshtein_distance(_ ,ao_df.sur_p1[i][0]) < 3 or 
-											jellyfish.levenshtein_distance(_ ,ao_df.sur_p2[i][0]) < 3  ) )
+	
+	mindex = op_df.year.isin([ao_df.year[i]]) & op_df.id.apply(lambda _: jellyfish.levenshtein_distance(ao_df.id[i], _) < 3)
+
+	# right_one = (
+	# 	op_df.year.isin([ao_df.year[i]]) & 
+	# 	op_df.sur_p1.apply(  lambda _: (jellyfish.levenshtein_distance(_ ,ao_df["id"][i]) < 3) or 
+	# 									(jellyfish.levenshtein_distance(_ ,ao_df.sur_p2[i][0]) < 3)  ) & 
+	# 	op_df.sur_p2.apply(  lambda _: jellyfish.levenshtein_distance(_ ,ao_df.sur_p1[i][0]) < 3 or 
+	# 										jellyfish.levenshtein_distance(_ ,ao_df.sur_p2[i][0]) < 3  ) )
 	
 
-	NMTCH = sum(right_one)
+	NMTCH = sum(mindex)
 
 	if NMTCH == 1:  # exactly 1 match
 		print("ok")
