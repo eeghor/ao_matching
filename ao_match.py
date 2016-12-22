@@ -7,7 +7,19 @@ official_ao_data_file = sys.argv[1]
 oddsportal_ao_data_file = sys.argv[2]
 flashscore_ao_data_file = sys.argv[3]
 
+"""
+examples of names in the AO data:
+
+Maria Kirilenko/Lina Krasnoroutskaya
+Ma. Emilia Salerni/Milagros Sequera
+Alex Jr. Bogomolov
+Alex Bogomolov Jr.
+
+and in ** 2016 **: G. Dabrowski/A. Rosolska, J. Tsonga
+"""
 ao_df = pd.read_csv(official_ao_data_file, sep="\t") 
+
+
 op_df = pd.read_csv(oddsportal_ao_data_file, sep="\t") 
 fs_df = pd.read_csv(flashscore_ao_data_file, sep="\t") 
 
@@ -63,6 +75,8 @@ def get_op_surname(st):
 
 def normalize_name(st):
 
+	
+	st = st.replace("-", " ")
 	st_split = st.split()
 
 	if "." not in st_split[0]:
@@ -126,6 +140,7 @@ for i in range(nrows_ao):
 		continue
 	
 	eindex = (op_df.year == ao_df.year[i]) & (op_df.id == ao_df.id[i])
+
 	if sum(eindex) == 1:
 		mindex = eindex
 	else:
