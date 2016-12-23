@@ -25,7 +25,7 @@ TODO:
 
 def normalize_name(st):
 
-	st_wo_dots = [w for w in st.split() if "." not in w]
+	st_wo_dots = [w for w in st.split() if ("." not in w)and (len(w) > 2)]
 	
 	if len(st_wo_dots) == 1:
 
@@ -80,6 +80,8 @@ plist1 = ao_df.player1.apply(lambda _: [normalize_name(_)] if "/" not in _ else 
 plist2 = ao_df.player2.apply(lambda _: [normalize_name(_)] if "/" not in _ else [normalize_name(y) for y in _.split("/")])
 
 ao_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1]+[x[2]] for x in zip(plist1, plist2, ao_years)]))]).values
+
+ao_df = ao_df.drop_duplicates()
 
 # here dates are like 14 Jan 2009
 op_years = op_df.date.apply(lambda _: _.split()[-1]).tolist()
