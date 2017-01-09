@@ -1,11 +1,16 @@
 import pandas as pd
 import sys
+from unidecode import unidecode
 import jellyfish
 
 # command line arguments
 official_ao_data_file = sys.argv[1]
 oddsportal_ao_data_file = sys.argv[2]
 flashscore_ao_data_file = sys.argv[3]
+
+player_surname_dict = {}
+
+nlets = 3
 
 """
 examples of names in the AO data:
@@ -20,12 +25,13 @@ and in ** 2016 **: G. Dabrowski/A. Rosolska, J. Tsonga
 TODO: 
 (1) remove all the parts with "."
 (2) in what's left, if "-" is in the last word, remove the second part of the last word, i.e. Hubba-Whakka -> Hubba
-(3) leave only the last word as the name
+(nlets) leave only the last word as the name
 """
 
-def normalize_name(st):
 
-	st_wo_dots = [w for w in st.split() if ("." not in w)and (len(w) > 2)]
+def normalize_name(st, nchars):
+
+	st_wo_dots = [unidecode(w) for w in st.split() if "." not in w]
 	
 	if len(st_wo_dots) == 1:
 
@@ -41,7 +47,7 @@ def normalize_name(st):
 		else:
 			st_normalized = st_wo_dots[1]
 
-	elif len(st_wo_dots) == 3:  # like Juan de Giggio
+	elif len(st_wo_dots) == nlets:  # like Juan de Giggio
 
 		if "-" in st_wo_dots[2]:
 			st_normalized = st_wo_dots[2].split("-")[0]
@@ -50,62 +56,82 @@ def normalize_name(st):
 
 	elif len(st_wo_dots) == 4:  # Juan Martin del Potro
 
-		if "-" in st_wo_dots[3]:
-			st_normalized = st_wo_dots[3].split("-")[0]
+		if "-" in st_wo_dots[nlets]:
+			st_normalized = st_wo_dots[nlets].split("-")[0]
 		else:
-			st_normalized = st_wo_dots[3]
+			st_normalized = st_wo_dots[nlets]
 	else:
 
 		st_normalized = st  # do nothing then
 
-	return st_normalized.lower()[:3]
+	return st_normalized.lower()[:nchars]
 
+def process_df(df):
 
+	nr0 = len(df.index)
+
+	df = df.drop_duplicates()
+
+	df.reset_index(inplace=True)
+
+	nr1 = len(df.index)
+
+	print("found {} duplicates".format(nr0-nr1))
+
+	return df
 
 ao_df = pd.read_csv(official_ao_data_file, sep="\t") 
 op_df = pd.read_csv(oddsportal_ao_data_file, sep="\t") 
 fs_df = pd.read_csv(flashscore_ao_data_file, sep="\t") 
 
-nrows_ao = len(ao_df.index)
+ao_df = process_df(ao_df)
+op_df = process_df(op_df)
+fs_df = process_df(fs_df)
+
 nrows_op = len(op_df.index)
 nrows_fs = len(fs_df.index)
+nrows_ao = len(ao_df.index)
 
 print("have {} matches from the official AO web site, {} from OddsPortal and {} from Flashscore..".format(nrows_ao, nrows_op, nrows_fs))
+
+#sys.exit("haha")
 
 # date is either just a year or something like 2016-01-25
 ao_years = ao_df.date.apply(lambda _: _ if "-" not in _ else _.split("-")[0]).tolist()
 
-# assume that surname is all but the very first word; special case: if there's del before the last word, then it's a part of surname
-plist1 = ao_df.player1.apply(lambda _: [normalize_name(_)] if "/" not in _ else [normalize_name(y) for y in _.split("/")])
-plist2 = ao_df.player2.apply(lambda _: [normalize_name(_)] if "/" not in _ else [normalize_name(y) for y in _.split("/")])
+plist1 = ao_df.player1.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
+plist2 = ao_df.player2.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
+print(plist2)
+#print("player lists for AO: {} and {}, year list {}".format(len(plist1), len(plist2),len(ao_years)))
 
+#ys.exit("haha")
 ao_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1]+[x[2]] for x in zip(plist1, plist2, ao_years)]))]).values
-
-ao_df = ao_df.drop_duplicates()
 
 # here dates are like 14 Jan 2009
 op_years = op_df.date.apply(lambda _: _.split()[-1]).tolist()
 
-plist1_op = op_df.player1.apply(lambda _: [normalize_name(_)] if "/" not in _ else [normalize_name(y) for y in _.split("/")])
-plist2_op = op_df.player2.apply(lambda _: [normalize_name(_)] if "/" not in _ else [normalize_name(y) for y in _.split("/")])
+plist1_op = op_df.player1.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
+plist2_op = op_df.player2.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
 
 op_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1]+[x[2]] for x in zip(plist1_op, plist2_op, op_years)]))]).values
 
 # 2011-01-19
 fs_years = fs_df.date.apply(lambda _: _.split("-")[0]).tolist()
-
-plist1_fs = fs_df.player1.apply(lambda _: [normalize_name(_)] if "/" not in _ else [normalize_name(y) for y in _.split("/")])
-plist2_fs = fs_df.player2.apply(lambda _: [normalize_name(_)] if "/" not in _ else [normalize_name(y) for y in _.split("/")])
+plist1_fs = fs_df.player1.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
+plist2_fs = fs_df.player2.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
 fs_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1]+[x[2]] for x in zip(plist1_fs, plist2_fs, fs_years)]))]).values
 
 
 ao_df["year"] = pd.Series(ao_years).astype(int)
+
 op_df["year"] = pd.Series(op_years).astype(int)
 fs_df["year"] = pd.Series(fs_years).astype(int)
 
 compare_df = pd.concat([op_df.loc[:, ["year", "time","id"]], fs_df.loc[:, ["year", "time","id"]]])
 
 compare_df = compare_df.drop_duplicates(subset=["id"])
+
+compare_df.year = compare_df.year.astype(int)
 print("merged the OddsPortal and Flashscore, obtained {} records in total...".format(len(compare_df.index)))
 
 min_year_op = compare_df["year"].min()
@@ -121,8 +147,14 @@ mult_match_idx = []
 
 nomatch_file = "nomatch.csv"
 multmatch_file = "multmatch.csv"
+res_file = "ao_matches.csv"
 
 for i in range(nrows_ao):
+	# print("i=",i)
+	# print("plist2[i]=",plist2[i])
+	# print("plist1[i]=",plist1[i])
+	
+	# print("ao_df.year[i]=",ao_df.year[i])
 
 	print("matching {} vs {} played in {}...".format(plist1[i], plist2[i], ao_df.year[i]), end="")
 	#print("this one has id=",ao_df.id[i])
@@ -141,7 +173,7 @@ for i in range(nrows_ao):
 
 	else:
 
-		mindex =  compare_df.id.apply(lambda _: jellyfish.levenshtein_distance(ao_df.id[i], _) == 1)
+		mindex =  compare_df.id.apply(lambda _: jellyfish.levenshtein_distance(ao_df.id[i][5:], _) < 2)
 
 	NMTCH = sum(mindex)
 
