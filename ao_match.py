@@ -28,6 +28,48 @@ TODO:
 (nlets) leave only the last word as the name
 """
 
+def create_ao_single_id(pl1, pl2, yr):
+
+	# names like Juan Cartlos del Morelos
+
+	last_word_pl1 = [unidecode(w).lower() for w in pl1.split() if "." not in w][-1]
+	last_word_pl2 = [unidecode(w).lower() for w in pl2.split() if "." not in w][-1]
+
+	# what if there's a dash, i.e. "-"
+
+	possible_surnames_pl1 = [w for w in last_word_pl1.split("-")]  # can be just ["clarke"] or ["clarke", "fatcat"]
+	possible_surnames_pl2 = [w for w in last_word_pl2.split("-")]
+
+	id_list = ["_".join(["_".join(sorted([p1]+[p2])), yr]) for p1 in possible_surnames_pl1 for p2 in possible_surnames_pl2]
+
+	return id_list
+
+def create_ao_double_id(pair1, pair2, yr):
+
+	p1_pl1, p1_pl2 = pair1.split("/")
+	p2_pl1, p2_pl2 = pair2.split("/")
+
+	# names like Juan Cartlos del Morelos
+
+	last_word_p1_pl1 = [unidecode(w).lower() for w in p1_pl1.split() if "." not in w][-1]
+	last_word_p1_pl2 = [unidecode(w).lower() for w in p1_pl2.split() if "." not in w][-1]
+	last_word_p2_pl1 = [unidecode(w).lower() for w in p2_pl1.split() if "." not in w][-1]
+	last_word_p2_pl2 = [unidecode(w).lower() for w in p2_pl2.split() if "." not in w][-1]
+
+	# what if there's a dash, i.e. "-"
+
+	possible_surnames_p1_pl1 = [w for w in last_word_p1_pl1 .split("-")]  # can be just ["clarke"] or ["clarke", "fatcat"]
+	possible_surnames_p1_pl2 = [w for w in last_word_p1_pl2 .split("-")]
+	possible_surnames_p2_pl1 = [w for w in last_word_p2_pl1 .split("-")]
+	possible_surnames_p2_pl2 = [w for w in last_word_p2_pl2 .split("-")]
+
+	id_list = ["_".join(["_".join(sorted([p1]+[p2]+[p3]+[p4])), yr]) for p1 in possible_surnames_p1_pl1
+															for p2 in possible_surnames_p1_pl2
+															for p3 in possible_surnames_p2_pl1
+															for p4 in possible_surnames_p2_pl2]
+
+	return id_list
+
 
 def normalize_name(st, nchars):
 
@@ -99,12 +141,23 @@ print("have {} matches from the official AO web site, {} from OddsPortal and {} 
 # date is either just a year or something like 2016-01-25
 ao_years = ao_df.date.apply(lambda _: _ if "-" not in _ else _.split("-")[0]).tolist()
 
-plist1 = ao_df.player1.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
-plist2 = ao_df.player2.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
-print(plist2)
+# plist1 = ao_df.player1.apply(lambda _: normalize_ao_names(_) if "/" not in _ else normalize_ao_names(y) for y in _.split("/"))
+# plist2 = ao_df.player2.apply(lambda _: normalize_ao_names(_) if "/" not in _ else normalize_ao_names(y) for y in _.split("/"))
+
+lis = []
+
+for i in range(nrows_ao):
+
+	if not "/" in ao_df.player1[i]:
+		lis.append(create_ao_single_id(ao_df.player1[i], ao_df.player2[i], ao_years[i]))
+	else:
+		lis.append(create_ao_double_id(ao_df.player1[i], ao_df.player2[i], ao_years[i]))
+
+print(lis)
 #print("player lists for AO: {} and {}, year list {}".format(len(plist1), len(plist2),len(ao_years)))
 
-#ys.exit("haha")
+sys.exit("haha")
+
 ao_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1]+[x[2]] for x in zip(plist1, plist2, ao_years)]))]).values
 
 # here dates are like 14 Jan 2009
