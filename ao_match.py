@@ -2,33 +2,24 @@ import pandas as pd
 import sys
 from unidecode import unidecode
 import jellyfish
+import re
 
 # command line arguments
 official_ao_data_file = sys.argv[1]
 oddsportal_ao_data_file = sys.argv[2]
 flashscore_ao_data_file = sys.argv[3]
 
-player_surname_dict = {}
-
-nlets = 3
-
-"""
-examples of names in the AO data:
-
-Maria Kirilenko/Lina Krasnoroutskaya
-Ma. Emilia Salerni/Milagros Sequera
-Alex Jr. Bogomolov
-Alex Bogomolov Jr.
-
-and in ** 2016 **: G. Dabrowski/A. Rosolska, J. Tsonga
-
-TODO: 
-(1) remove all the parts with "."
-(2) in what's left, if "-" is in the last word, remove the second part of the last word, i.e. Hubba-Whakka -> Hubba
-(nlets) leave only the last word as the name
-"""
+catch1 = re.compile(r"[A-Z]-[A-Z].")
+catch2 = re.compile(r"-[A-Z].")
 
 def create_ao_single_id(pl1, pl2, yr):
+
+	# remove W-S. or -Q.
+
+	pl1 = re.sub(catch1, " ", pl1)
+	pl2 = re.sub(catch1, " ", pl2)
+	pl1 = re.sub(catch2, " ", pl1)
+	pl2 = re.sub(catch2, " ", pl2)	
 
 	# names like Juan Cartlos del Morelos
 
@@ -48,6 +39,18 @@ def create_ao_double_id(pair1, pair2, yr):
 
 	p1_pl1, p1_pl2 = pair1.split("/")
 	p2_pl1, p2_pl2 = pair2.split("/")
+
+	p1_pl1 = re.sub(catch1, " ", p1_pl1)
+	p1_pl1 = re.sub(catch2, " ", p1_pl1)
+
+	p1_pl2 = re.sub(catch1, " ", p1_pl2)
+	p1_pl2 = re.sub(catch2, " ", p1_pl2)
+
+	p2_pl1 = re.sub(catch1, " ", p2_pl1)
+	p2_pl1 = re.sub(catch2, " ", p2_pl1)
+
+	p2_pl2 = re.sub(catch1, " ", p2_pl2)
+	p2_pl2 = re.sub(catch2, " ", p2_pl2)
 
 	# names like Juan Cartlos del Morelos
 
@@ -71,42 +74,42 @@ def create_ao_double_id(pair1, pair2, yr):
 	return id_list
 
 
-def normalize_name(st, nchars):
+# def normalize_name(st, nchars):
 
-	st_wo_dots = [unidecode(w) for w in st.split() if "." not in w]
+# 	st_wo_dots = [unidecode(w) for w in st.split() if "." not in w]
 	
-	if len(st_wo_dots) == 1:
+# 	if len(st_wo_dots) == 1:
 
-		if "-" in st_wo_dots[0]:
-			st_normalized = st_wo_dots[0].split("-")[0]
-		else:
-			st_normalized = st_wo_dots[0]
+# 		if "-" in st_wo_dots[0]:
+# 			st_normalized = st_wo_dots[0].split("-")[0]
+# 		else:
+# 			st_normalized = st_wo_dots[0]
 	
-	elif len(st_wo_dots) == 2: # if 2 words left, like Pedro Martinez-Poppulis
+# 	elif len(st_wo_dots) == 2: # if 2 words left, like Pedro Martinez-Poppulis
 
-		if "-" in st_wo_dots[1]:
-			st_normalized = st_wo_dots[1].split("-")[0]
-		else:
-			st_normalized = st_wo_dots[1]
+# 		if "-" in st_wo_dots[1]:
+# 			st_normalized = st_wo_dots[1].split("-")[0]
+# 		else:
+# 			st_normalized = st_wo_dots[1]
 
-	elif len(st_wo_dots) == nlets:  # like Juan de Giggio
+# 	elif len(st_wo_dots) == nlets:  # like Juan de Giggio
 
-		if "-" in st_wo_dots[2]:
-			st_normalized = st_wo_dots[2].split("-")[0]
-		else:
-			st_normalized = st_wo_dots[2]
+# 		if "-" in st_wo_dots[2]:
+# 			st_normalized = st_wo_dots[2].split("-")[0]
+# 		else:
+# 			st_normalized = st_wo_dots[2]
 
-	elif len(st_wo_dots) == 4:  # Juan Martin del Potro
+# 	elif len(st_wo_dots) == 4:  # Juan Martin del Potro
 
-		if "-" in st_wo_dots[nlets]:
-			st_normalized = st_wo_dots[nlets].split("-")[0]
-		else:
-			st_normalized = st_wo_dots[nlets]
-	else:
+# 		if "-" in st_wo_dots[nlets]:
+# 			st_normalized = st_wo_dots[nlets].split("-")[0]
+# 		else:
+# 			st_normalized = st_wo_dots[nlets]
+# 	else:
 
-		st_normalized = st  # do nothing then
+# 		st_normalized = st  # do nothing then
 
-	return st_normalized.lower()[:nchars]
+# 	return st_normalized.lower()[:nchars]
 
 def process_df(df):
 
@@ -130,11 +133,11 @@ ao_df = process_df(ao_df)
 op_df = process_df(op_df)
 fs_df = process_df(fs_df)
 
-nrows_op = len(op_df.index)
 nrows_fs = len(fs_df.index)
+nrows_op = len(op_df.index)
 nrows_ao = len(ao_df.index)
 
-print("have {} matches from the official AO web site, {} from OddsPortal and {} from Flashscore..".format(nrows_ao, nrows_op, nrows_fs))
+#print("have {} matches from the official AO web site, {} from OddsPortal and {} from Flashscore..".format(nrows_ao, nrows_op, nrows_fs))
 
 #sys.exit("haha")
 
@@ -143,6 +146,12 @@ ao_years = ao_df.date.apply(lambda _: _ if "-" not in _ else _.split("-")[0]).to
 
 # plist1 = ao_df.player1.apply(lambda _: normalize_ao_names(_) if "/" not in _ else normalize_ao_names(y) for y in _.split("/"))
 # plist2 = ao_df.player2.apply(lambda _: normalize_ao_names(_) if "/" not in _ else normalize_ao_names(y) for y in _.split("/"))
+
+
+#print("player lists for AO: {} and {}, year list {}".format(len(plist1), len(plist2),len(ao_years)))
+
+# here dates are like 14 Jan 2009
+
 
 lis = []
 
@@ -153,39 +162,57 @@ for i in range(nrows_ao):
 	else:
 		lis.append(create_ao_double_id(ao_df.player1[i], ao_df.player2[i], ao_years[i]))
 
-print(lis)
-#print("player lists for AO: {} and {}, year list {}".format(len(plist1), len(plist2),len(ao_years)))
+ao_df["id"] = pd.Series(lis).values
 
-sys.exit("haha")
+print(ao_df["id"])
 
-ao_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1]+[x[2]] for x in zip(plist1, plist2, ao_years)]))]).values
+lis = []
 
-# here dates are like 14 Jan 2009
 op_years = op_df.date.apply(lambda _: _.split()[-1]).tolist()
 
-plist1_op = op_df.player1.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
-plist2_op = op_df.player2.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
+for i in range(nrows_op):
+	
+	if not "/" in op_df.player1[i]:
+		lis.append(create_ao_single_id(op_df.player1[i], op_df.player2[i], op_years[i]))
+	else:
+		lis.append(create_ao_double_id(op_df.player1[i], op_df.player2[i], op_years[i]))
 
-op_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1]+[x[2]] for x in zip(plist1_op, plist2_op, op_years)]))]).values
+op_df["id"] = pd.Series(lis).values
 
-# 2011-01-19
+lis = []
+
 fs_years = fs_df.date.apply(lambda _: _.split("-")[0]).tolist()
-plist1_fs = fs_df.player1.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
-plist2_fs = fs_df.player2.apply(lambda _: [normalize_name(_, nlets)] if "/" not in _ else [normalize_name(y, 2) for y in _.split("/")])
-fs_df["id"] = pd.Series([y for y in map(lambda x: "_".join(x), map(sorted, [x[0]+x[1]+[x[2]] for x in zip(plist1_fs, plist2_fs, fs_years)]))]).values
 
+for i in range(nrows_fs):
+	#print("now pl1={}, pl2={}, yr={}".format(op_df.player1[i], op_df.player2[i], op_years[i]))
+	if not "/" in fs_df.player1[i]:
+		#print(op_df.player1[i])
+		lis.append(create_ao_single_id(fs_df.player1[i], fs_df.player2[i], fs_years[i]))
+	else:
+		#print(op_df.player1[i])
+		lis.append(create_ao_double_id(fs_df.player1[i], fs_df.player2[i], fs_years[i]))
+
+fs_df["id"] = pd.Series(lis).values
 
 ao_df["year"] = pd.Series(ao_years).astype(int)
-
 op_df["year"] = pd.Series(op_years).astype(int)
 fs_df["year"] = pd.Series(fs_years).astype(int)
 
+print("FS ids:")
+print(fs_df.id)
+
+
+
 compare_df = pd.concat([op_df.loc[:, ["year", "time","id"]], fs_df.loc[:, ["year", "time","id"]]])
-
-compare_df = compare_df.drop_duplicates(subset=["id"])
-
-compare_df.year = compare_df.year.astype(int)
+print("merged OP and FS...")
+print(compare_df.head())
+#compare_df = compare_df.drop_duplicates(subset=["id"])
+# print("dropped duclicates...")
+# compare_df.year = compare_df.year.astype(int)
 print("merged the OddsPortal and Flashscore, obtained {} records in total...".format(len(compare_df.index)))
+compare_df.to_csv("compare_df.csv", index=False, sep="\t")
+
+sys.exit("haha")
 
 min_year_op = compare_df["year"].min()
 max_year_op = compare_df["year"].max()
