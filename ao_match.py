@@ -4,279 +4,162 @@ from unidecode import unidecode
 import jellyfish
 import re
 
-# command line arguments
-official_ao_data_file = sys.argv[1]
-oddsportal_ao_data_file = sys.argv[2]
-flashscore_ao_data_file = sys.argv[3]
+# data from the official AO web site
+official_ao_data_file = "./data/scraped_data_from_aopen_WD_MD_MS_WS.csv"
+# data from OddsPortal.com
+oddsportal_ao_data_file = "./data/scraped_oddportal_data_MS_WS_MD_WD_2009_2016.csv"
+# data from FlashScore.com
+flashscore_ao_data_file = "./data/scraped_flashscore_data_WD_MD_MS_WS_2005_2016.csv"
 
-catch1 = re.compile(r"[A-Z]-[A-Z].")
-catch2 = re.compile(r"-[A-Z].")
-
-def create_ao_single_id(pl1, pl2, yr):
-
-	# remove W-S. or -Q.
-
-	pl1 = re.sub(catch1, " ", pl1)
-	pl2 = re.sub(catch1, " ", pl2)
-	pl1 = re.sub(catch2, " ", pl1)
-	pl2 = re.sub(catch2, " ", pl2)	
-
-	# names like Juan Cartlos del Morelos
-
-	last_word_pl1 = [unidecode(w).lower() for w in pl1.split() if "." not in w][-1]
-	last_word_pl2 = [unidecode(w).lower() for w in pl2.split() if "." not in w][-1]
-
-	# what if there's a dash, i.e. "-"
-
-	possible_surnames_pl1 = [w for w in last_word_pl1.split("-")]  # can be just ["clarke"] or ["clarke", "fatcat"]
-	possible_surnames_pl2 = [w for w in last_word_pl2.split("-")]
-
-	id_list = ["_".join(["_".join(sorted([p1]+[p2])), yr]) for p1 in possible_surnames_pl1 for p2 in possible_surnames_pl2]
-
-	return id_list
-
-def create_ao_double_id(pair1, pair2, yr):
-
-	p1_pl1, p1_pl2 = pair1.split("/")
-	p2_pl1, p2_pl2 = pair2.split("/")
-
-	p1_pl1 = re.sub(catch1, " ", p1_pl1)
-	p1_pl1 = re.sub(catch2, " ", p1_pl1)
-
-	p1_pl2 = re.sub(catch1, " ", p1_pl2)
-	p1_pl2 = re.sub(catch2, " ", p1_pl2)
-
-	p2_pl1 = re.sub(catch1, " ", p2_pl1)
-	p2_pl1 = re.sub(catch2, " ", p2_pl1)
-
-	p2_pl2 = re.sub(catch1, " ", p2_pl2)
-	p2_pl2 = re.sub(catch2, " ", p2_pl2)
-
-	# names like Juan Cartlos del Morelos
-
-	last_word_p1_pl1 = [unidecode(w).lower() for w in p1_pl1.split() if "." not in w][-1]
-	last_word_p1_pl2 = [unidecode(w).lower() for w in p1_pl2.split() if "." not in w][-1]
-	last_word_p2_pl1 = [unidecode(w).lower() for w in p2_pl1.split() if "." not in w][-1]
-	last_word_p2_pl2 = [unidecode(w).lower() for w in p2_pl2.split() if "." not in w][-1]
-
-	# what if there's a dash, i.e. "-"
-
-	possible_surnames_p1_pl1 = [w for w in last_word_p1_pl1 .split("-")]  # can be just ["clarke"] or ["clarke", "fatcat"]
-	possible_surnames_p1_pl2 = [w for w in last_word_p1_pl2 .split("-")]
-	possible_surnames_p2_pl1 = [w for w in last_word_p2_pl1 .split("-")]
-	possible_surnames_p2_pl2 = [w for w in last_word_p2_pl2 .split("-")]
-
-	id_list = ["_".join(["_".join(sorted([p1]+[p2]+[p3]+[p4])), yr]) for p1 in possible_surnames_p1_pl1
-															for p2 in possible_surnames_p1_pl2
-															for p3 in possible_surnames_p2_pl1
-															for p4 in possible_surnames_p2_pl2]
-
-	return id_list
-
-
-# def normalize_name(st, nchars):
-
-# 	st_wo_dots = [unidecode(w) for w in st.split() if "." not in w]
-	
-# 	if len(st_wo_dots) == 1:
-
-# 		if "-" in st_wo_dots[0]:
-# 			st_normalized = st_wo_dots[0].split("-")[0]
-# 		else:
-# 			st_normalized = st_wo_dots[0]
-	
-# 	elif len(st_wo_dots) == 2: # if 2 words left, like Pedro Martinez-Poppulis
-
-# 		if "-" in st_wo_dots[1]:
-# 			st_normalized = st_wo_dots[1].split("-")[0]
-# 		else:
-# 			st_normalized = st_wo_dots[1]
-
-# 	elif len(st_wo_dots) == nlets:  # like Juan de Giggio
-
-# 		if "-" in st_wo_dots[2]:
-# 			st_normalized = st_wo_dots[2].split("-")[0]
-# 		else:
-# 			st_normalized = st_wo_dots[2]
-
-# 	elif len(st_wo_dots) == 4:  # Juan Martin del Potro
-
-# 		if "-" in st_wo_dots[nlets]:
-# 			st_normalized = st_wo_dots[nlets].split("-")[0]
-# 		else:
-# 			st_normalized = st_wo_dots[nlets]
-# 	else:
-
-# 		st_normalized = st  # do nothing then
-
-# 	return st_normalized.lower()[:nchars]
-
-def process_df(df):
-
-	nr0 = len(df.index)
-
-	df = df.drop_duplicates()
-
-	df.reset_index(inplace=True)
-
-	nr1 = len(df.index)
-
-	print("found {} duplicates".format(nr0-nr1))
-
-	return df
-
+# read the data
 ao_df = pd.read_csv(official_ao_data_file, sep="\t") 
 op_df = pd.read_csv(oddsportal_ao_data_file, sep="\t") 
 fs_df = pd.read_csv(flashscore_ao_data_file, sep="\t") 
 
-ao_df = process_df(ao_df)
-op_df = process_df(op_df)
-fs_df = process_df(fs_df)
+# remove possible duplicates
+ao_df = ao_df.drop_duplicates()
+ao_df.reset_index(inplace=True)
 
-nrows_fs = len(fs_df.index)
-nrows_op = len(op_df.index)
-nrows_ao = len(ao_df.index)
+op_df = op_df.drop_duplicates()
+op_df.reset_index(inplace=True)
 
-#print("have {} matches from the official AO web site, {} from OddsPortal and {} from Flashscore..".format(nrows_ao, nrows_op, nrows_fs))
+fs_df = fs_df.drop_duplicates()
+fs_df.reset_index(inplace=True)
 
-#sys.exit("haha")
+print("rows in AO data: {}, OddsPortal: {}, FlashScore: {}".format(len(ao_df.index), len(op_df.index), len(fs_df.index)))
+
+def get_player_surnames(player_name):
+
+	"""
+	IN:  player name, like Ednumdo Jr de la Pollo-Garcia
+	OUT: a list of possible player surnames, like ["pollo", "garcia"]
+	
+	"""
+	# name changes:
+	# Kops-Jones -> Atawo
+	player_name = re.sub(r"[Kk]ops[\s-][Jj]ones", "Atawo ", player_name)
+	# remove [Capital Letter][dot or dash] like in W. or J-
+	player_name = re.sub(r"[A-Z][.-]", " ", player_name)
+	# remove [Jr], [van der] and [de la]
+	player_name = re.sub(r"\s[Jj]r\s", " ", player_name)
+	player_name = re.sub(r"\s[Vv]an\s[Dd]er\s", " ", player_name)
+	player_name = re.sub(r"\s[Dd]e\s[Ll]a\s", " ", player_name)
+	# remove all dashes
+	player_name = re.sub(r"-", " ", player_name).strip()
+	# do unidecode, make everything lower case, take only first 3 letters
+	possible_surnames = [unidecode(w).lower()[:3] for w in player_name.split()]
+
+	
+	return possible_surnames
+
+
+def create_match_ids(pl1, pl2, yr):
+
+	"""
+	IN:  player names; if singles, Sergio W. Chikkino and Hui T.; if doubles, then there's a "/" like in 
+		Sergio W. Chikkino/Monika Broom and Hui T./Chung R.W.
+	
+	OUT: a list of strings representing possible match ids, e.g. ["chikkino_hui_broom_chung_2004"] 
+	
+	"""
+	
+	# if it's a singles (no "/" in player names)
+
+	if "/" not in pl1:
+
+		match_id_list = ["_".join(["_".join(sorted([sur1] + [sur2])), yr]) for sur1 in get_player_surnames(pl1) for sur2 in get_player_surnames(pl2)]
+	
+	else:
+
+		# in this case, each "player" is like Cheung T./Pukkanen W. so we need to split by "/" 
+
+		pair1_pl1, pair1_pl2 = pl1.split("/")
+		pair2_pl1, pair2_pl2 = pl2.split("/")
+
+		match_id_list = ["_".join(["_".join(sorted([sur1] + [sur2] + [sur3] + [sur4])), yr]) for sur1 in get_player_surnames(pair1_pl1) 
+																								for sur2 in get_player_surnames(pair1_pl2)
+																								for sur3 in get_player_surnames(pair2_pl1)
+																								for sur4 in get_player_surnames(pair2_pl2)]
+
+	return match_id_list
+
+def create_id_list(df, years):
+
+	lis = []
+
+	for i in range(len(df.index)):
+		# create lists of possible ids for every match and then put them in string separated with a comma
+		lis.append(",".join(create_match_ids(df.player1[i], df.player2[i], years[i])))
+
+	return lis
+
 
 # date is either just a year or something like 2016-01-25
 ao_years = ao_df.date.apply(lambda _: _ if "-" not in _ else _.split("-")[0]).tolist()
-
-# plist1 = ao_df.player1.apply(lambda _: normalize_ao_names(_) if "/" not in _ else normalize_ao_names(y) for y in _.split("/"))
-# plist2 = ao_df.player2.apply(lambda _: normalize_ao_names(_) if "/" not in _ else normalize_ao_names(y) for y in _.split("/"))
-
-
-#print("player lists for AO: {} and {}, year list {}".format(len(plist1), len(plist2),len(ao_years)))
-
-# here dates are like 14 Jan 2009
-
-
-lis = []
-
-for i in range(nrows_ao):
-
-	if not "/" in ao_df.player1[i]:
-		lis.append(create_ao_single_id(ao_df.player1[i], ao_df.player2[i], ao_years[i]))
-	else:
-		lis.append(create_ao_double_id(ao_df.player1[i], ao_df.player2[i], ao_years[i]))
-
-ao_df["id"] = pd.Series(lis).values
-
-print(ao_df["id"])
-
-lis = []
-
 op_years = op_df.date.apply(lambda _: _.split()[-1]).tolist()
-
-for i in range(nrows_op):
-	
-	if not "/" in op_df.player1[i]:
-		lis.append(create_ao_single_id(op_df.player1[i], op_df.player2[i], op_years[i]))
-	else:
-		lis.append(create_ao_double_id(op_df.player1[i], op_df.player2[i], op_years[i]))
-
-op_df["id"] = pd.Series(lis).values
-
-lis = []
-
 fs_years = fs_df.date.apply(lambda _: _.split("-")[0]).tolist()
 
-for i in range(nrows_fs):
-	#print("now pl1={}, pl2={}, yr={}".format(op_df.player1[i], op_df.player2[i], op_years[i]))
-	if not "/" in fs_df.player1[i]:
-		#print(op_df.player1[i])
-		lis.append(create_ao_single_id(fs_df.player1[i], fs_df.player2[i], fs_years[i]))
-	else:
-		#print(op_df.player1[i])
-		lis.append(create_ao_double_id(fs_df.player1[i], fs_df.player2[i], fs_years[i]))
+ao_df["id"] = pd.Series(create_id_list(ao_df, ao_years)).values
+op_df["id"] = pd.Series(create_id_list(op_df, op_years)).values
+fs_df["id"] = pd.Series(create_id_list(fs_df, fs_years)).values
 
-fs_df["id"] = pd.Series(lis).values
-
+# create year columns
 ao_df["year"] = pd.Series(ao_years).astype(int)
 op_df["year"] = pd.Series(op_years).astype(int)
 fs_df["year"] = pd.Series(fs_years).astype(int)
 
-print("FS ids:")
-print(fs_df.id)
-
-
-
-compare_df = pd.concat([op_df.loc[:, ["year", "time","id"]], fs_df.loc[:, ["year", "time","id"]]])
-print("merged OP and FS...")
-print(compare_df.head())
-#compare_df = compare_df.drop_duplicates(subset=["id"])
-# print("dropped duclicates...")
-# compare_df.year = compare_df.year.astype(int)
-print("merged the OddsPortal and Flashscore, obtained {} records in total...".format(len(compare_df.index)))
-compare_df.to_csv("compare_df.csv", index=False, sep="\t")
-
-sys.exit("haha")
+# merge the OddsPortal and FlashScore data; we only need year, time and id
+compare_df = pd.concat([op_df.loc[:, ["year", "date", "time", "id"]], fs_df.loc[:, ["year", "date", "time", "id"]]])
+compare_df =  compare_df.reset_index()
+print("merged OddsPortal and FlashScore data contains {} rows...".format(len(compare_df.index)))
 
 min_year_op = compare_df["year"].min()
 max_year_op = compare_df["year"].max()
 
-print("available years with starting times: from {} to {}...".format(min_year_op, max_year_op))
+print("available years with starting times: {} to {}...".format(min_year_op, max_year_op))
 
-starting_times = []
-exact_match_idx = []
+# collect indices that weren't matched
 nomatch_idx = []
-nomatch_absent_year_idx = []
-mult_match_idx = []
-
 nomatch_file = "nomatch.csv"
-multmatch_file = "multmatch.csv"
+
 res_file = "ao_matches.csv"
 
-for i in range(nrows_ao):
-	# print("i=",i)
-	# print("plist2[i]=",plist2[i])
-	# print("plist1[i]=",plist1[i])
-	
-	# print("ao_df.year[i]=",ao_df.year[i])
+starting_times = [None]*len(ao_df.index)
+dates = [None]*len(ao_df.index)
 
-	print("matching {} vs {} played in {}...".format(plist1[i], plist2[i], ao_df.year[i]), end="")
-	#print("this one has id=",ao_df.id[i])
+# go back to possible ids as lists of strings
+possible_ids = ao_df.id.str.split(",")
+compare_ids = compare_df.id.str.split(",")
 
-	if ao_df.year[i] not in range(min_year_op, max_year_op + 1):
-		print("skip")
-		starting_times.append("N/A")
-		nomatch_absent_year_idx.append(i)
-		continue
-	
-	eindex = compare_df.id.apply(lambda _: _ == ao_df.id[i])
-
-	if sum(eindex) == 1:
-
-		mindex = eindex
-
-	else:
-
-		mindex =  compare_df.id.apply(lambda _: jellyfish.levenshtein_distance(ao_df.id[i][5:], _) < 2)
-
-	NMTCH = sum(mindex)
-
-	if NMTCH == 1:  # exactly 1 match
-		print("ok")
-		exact_match_idx.append(i)
-	elif NMTCH == 0:
-		print("no")
+for i, ids_ao_match in enumerate(possible_ids):
+	found_flag = 0
+	for j, ids_other in enumerate(compare_ids):
+		if set(ids_ao_match) & set(ids_other):
+			found_flag = 1
+			starting_times[i] = compare_df.loc[j, "time"]
+			dates[i] = compare_df.loc[j, "date"]
+			continue
+	if found_flag == 0:
+		for j, ids_other in enumerate(compare_ids):
+			for v in ids_ao_match:
+				for w in ids_other:
+					if jellyfish.levenshtein_distance(v, w) < 2:
+						found_flag = 1
+						starting_times[i] = compare_df.loc[j, "time"]
+						dates[i] = compare_df.loc[j, "date"]
+						break
+	if found_flag == 0:
 		nomatch_idx.append(i)
-		starting_times.append("N/A")
-	else:
-		print("x{}!".format(NMTCH))
-		mult_match_idx.append(i)
 
-print("---> summary")
-print("total ao matches: {}".format(nrows_ao))
-print("total played before {}: {}".format(min_year_op, len(nomatch_absent_year_idx)))
-print("successfully added time: {} ({}%)".format(len(exact_match_idx), round(100* len(exact_match_idx)/(nrows_ao - len(nomatch_absent_year_idx)), 1)))
-print("couldn't find time: {}".format(len(nomatch_idx)))
-print("multiple times found: {}".format(len(mult_match_idx)))
+total_matches_required = len(ao_df.index)
+matched_ones = sum([s for s in map(lambda x: not (x is None), starting_times)])  # now many non-zeroes (i.e. successfully matched)
+matched_pct = round(matched_ones*100/total_matches_required,1)
 
+print("matched {}%".format(matched_pct))
 
+ao_df["time"] = pd.Series(starting_times).values
+ao_df["date"] = pd.Series(dates).values
+ao_df = ao_df.drop("id",1)
+
+ao_df.to_csv(res_file, index=False, sep="\t", columns=["round", "date", "time", "court", "player1", "player2"])
 ao_df.iloc[nomatch_idx].to_csv(nomatch_file, index=False, sep="\t")
-ao_df.iloc[mult_match_idx].to_csv(multmatch_file, index=False, sep="\t")
-	# ao_df.sur_p1[i] is a list of 1 or 2 surnames
-
